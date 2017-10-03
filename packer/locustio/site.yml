@@ -1,0 +1,35 @@
+---
+- hosts: all
+  vars:
+    locust_base_dir: /opt/locust_files
+    remote_ssh_user: ubuntu
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      become: yes
+      become_user: root
+
+    - name: Install Pip
+      apt:
+        name: "{{ item }}"
+      become: yes
+      become_user: root
+      with_items:
+        - python3-pip
+        - python-pip
+
+    - name: Update Pip
+      pip:
+        name: pip
+        state: latest
+        executable: "{{ item }}"
+      become: yes
+      become_user: root
+      with_items:
+        - pip2
+        - pip3
+
+  tasks:
+    - include: metrics.yml
+    - include: locust.yml

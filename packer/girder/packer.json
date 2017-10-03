@@ -1,0 +1,49 @@
+{
+    "variables": {
+        "aws_access_key": "{{env `TF_VAR_access_key`}}",
+        "aws_secret_key": "{{env `TF_VAR_secret_key`}}",
+        "key_name": "{{env `TF_VAR_key_name`}}"
+    },
+    "builders": [{
+        "type": "amazon-ebs",
+        "access_key": "{{user `aws_access_key`}}",
+        "secret_key": "{{user `aws_secret_key`}}",
+        "region": "us-east-1",
+        "source_ami_filter": {
+            "filters": {
+                "virtualization-type": "hvm",
+                "name": "*ubuntu-xenial-16.04-amd64-server-*",
+                "root-device-type": "ebs"
+            },
+            "owners": ["099720109477"],
+            "most_recent": true
+        },
+        "launch_block_device_mappings": [
+            {
+                "device_name": "/dev/sda1",
+                "volume_size": 100,
+                "volume_type": "gp2",
+                "delete_on_termination": true
+            }],
+        "instance_type": "t2.micro",
+        "ssh_username": "ubuntu",
+        "ami_name": "girder_load_test_ami {{timestamp}}",
+        "tags": {
+            "Name": "girder_load_test_ami"
+        }
+    }],
+    "provisioners": [
+        {
+            "type": "shell-local",
+            "command": "ansible-galaxy install --roles-path ./roles/ -r requirements.yml"
+        },
+        {
+            "type": "ansible",
+            "extra_arguments": [
+                "-vv",
+                "--extra-vars", "ansible_python_interpreter=/usr/bin/python3"
+            ],
+            "playbook_file": "./site.yml"
+        }
+    ]
+}

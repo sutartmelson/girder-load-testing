@@ -1,0 +1,103 @@
+- name: Add an Apt signing key, uses whichever key is at the URL
+  apt_key:
+    url: https://packagecloud.io/gpg.key
+    state: present
+  become: yes
+  become_user: root
+
+- name: Add Grafana Apt Repo
+  apt_repository:
+    repo: deb https://packagecloud.io/grafana/stable/debian/ jessie main
+    state: present
+    update_cache: yes
+  become: yes
+  become_user: root
+
+
+- name: Install Graphite/Graphana
+  apt:
+    name: "{{ item }}"
+  become: yes
+  become_user: root
+  with_items:
+    - graphite-api
+    - graphite-carbon
+    - gunicorn3
+    - grafana
+
+- name: Copy Graphite-API systemd services
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  become: yes
+  become_user: root
+  with_items:
+    - src: "templates/graphite-api.socket.j2"
+      dest: "/etc/systemd/system/graphite-api.socket"
+    - src: "templates/graphite-api.service.j2"
+      dest: "/etc/systemd/system/graphite-api.service"
+
+- name: Reload Systemd
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: yes
+  become_user: root
+  with_items:
+    - carbon-cache
+    - graphite-api
+    - grafana-server
+
+- name: Wait for Grafana to come up
+  wait_for:
+    port: 3000
+    delay: 5
+
+- set_fact:
+    datasource_post_data: >-
+
+
+# See: http://docs.grafana.org/http_api/data_source/
+- name: Create Grafana "Graphite" Datasource
+  uri:
+    url: http://localhost:3000/api/datasources
+    method: POST
+    user: admin
+    password: admin
+    body:
+      name: "Graphite"
+      type: "graphite"
+      url: "http://localhost:8888"
+      access: "proxy"
+      basicAuth: false
+      isDefault: true
+    force_basic_auth: yes
+    status_code: 201,200, 409
+    body_format: json
+
+- name: Upload default Grafana dashboards
+  uri:
+    url: http://localhost:3000/api/dashboards/db
+    method: POST
+    user: admin
+    password: admin
+    body: '{ "dashboard": {{ lookup("file", item) | from_json }} }'
+    force_basic_auth: yes
+    status_code: 201,200
+    body_format: json
+  with_fileglob:
+    - "templates/dashboards/*.json"
+
+- name: Reload Systemd
+  systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  become: yes
+  become_user: root
+  with_items:
+    - carbon-cache
+    - graphite-api
+    - grafana-server
