@@ -1,4 +1,0 @@
-- src: geerlingguy.nginx
-- src: https://github.com/Stouts/Stouts.mongodb.git
-  name: Stouts.mongodb
-- src: girder.girder
