@@ -1,5 +1,7 @@
 from locust import HttpLocust, TaskSet, task
 from faker import Faker
+from requests import Session
+from requests.auth import HTTPBasicAuth
 from girderIO import GirderIO
 from navigateGirder import NavigateGirder
 import girder_utils
@@ -39,7 +41,7 @@ class PowerUser(TaskSet):
             "password": self.user_profile['password'],
             "admin": False
         })
-
+        r.raise_for_status()
         # Set the user_id locally
         self.user_id = r.json()['_id']
 

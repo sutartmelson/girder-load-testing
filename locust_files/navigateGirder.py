@@ -22,6 +22,7 @@ class NavigateGirder(TaskSet):
         folders = girder_utils.list_users_folders(self.client, self.user_id)
 
         def explore(folders, decay=0.8):
+            # decay - likelyhood if traversing a level deeper at any given level
             if not folders:
                 return 'leaf'
             folders = random.shuffle(folders)
@@ -35,8 +36,8 @@ class NavigateGirder(TaskSet):
     def search(self):
         search_query = self.faker.slug()
         types = ['item','folder','group','collection','user']
-        r = self.client.post('/api/v1/resource/search',
-                             name='api.v1.resource.search',
+        r = self.client.get('/api/v1/resource/search',
+                             name='post api.v1.resource.search',
                              params={'q': 'search_query',
                                      'mode': 'prefix',
                                      'types': json.dumps(types)})
@@ -56,7 +57,7 @@ class NavigateGirder(TaskSet):
 
         # create folder
         r = self.client.post('/api/v1/folder',
-                             name='api.v1.folder.{}.{}'.format(folder_id, folder_name),
+                             name='post api.v1.folder',
                              params={'parentId': folder_id,
                                      'name': folder_name})
         r.raise_for_status()

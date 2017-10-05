@@ -38,7 +38,7 @@ class GirderIO(TaskSet):
 
         r = self.client.post('/api/v1/file',
                              # name='/api/v1/file, %s, %s, %s, %s' % (size, offset, folder_id, slug))
-                             name='api.v1.folder.{}'.format(size),
+                             name='post api.v1.folder',
                              params={
                                  'parentType': 'folder',
                                  'parentId': folder_id,
@@ -65,7 +65,7 @@ class GirderIO(TaskSet):
                     chunk = chunk.encode('utf8')
 
                 r = self.client.post('/api/v1/file/chunk',
-                                     name='api.v1.file.chunk.{}.{}'.format(uploadObj['_id'], size),
+                                     name='post api.v1.file.chunk',
                                      params={'offset': offset, 'uploadId': uploadObj['_id']},
                                      data=chunk)
                 uploadObj = r.json()
@@ -87,7 +87,7 @@ class GirderIO(TaskSet):
         file_id , size = random.choice(self.files)
 
         r = self.client.get('/api/v1/file/%s/download' % file_id,
-                            name='api.v1.file.{}.download.{}'.format(file_id, size),
+                            name='get api.v1.file.download',
                             stream=True)
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -96,4 +96,31 @@ class GirderIO(TaskSet):
 
             os.remove(tmp.name)
 
+    @task(10)
+    def upload_batch(self):
+        count = random.randint(100,5000)
+        folder_id = girder_utils.get_random_folder_id(self.client, self.user_id)
+        with tempfile.NamedTemporaryFile() as temp:
+            slug = self.faker.slug()
+            temp.write(slug)
+            temp.seek(0)
+            r = self.client.post('/api/v1/file',
+                     name='post api.v1.file',
+                     params={
+                         'parentType': 'folder',
+                         'parentId': folder_id,
+                         'name': temp.name,
+                         'size': len(slug),
+                         'mimeType': 'application/text'
+                     })
 
+            uploadObj = r.json()
+            if '_id' not in uploadObj:
+                raise Exception(
+                    'After uploading a file chunk, did not receive object with _id. '
+                    'Got instead: ' + json.dumps(uploadObj))
+
+            r = self.client.post('/api/v1/file/chunk/',
+                                 name='post api.v1.file.chunk',
+                                 params={'offset': 0, 'uploadId': uploadObj['_id']},
+                                 data=temp)
