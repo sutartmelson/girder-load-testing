@@ -1,6 +1,8 @@
 from locust import HttpLocust
 from powerUser import PowerUser
 
+import loggra
+loggra.setup_graphite_communication()
 
 
 class MyLocust(HttpLocust):
