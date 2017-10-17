@@ -10,7 +10,7 @@ import json
 
 class PowerUser(TaskSet):
 
-    tasks = {GirderIO: 1, NavigateGirder: 1}
+    tasks = {GirderIO: 4, NavigateGirder: 3}
 
     def on_start(self):
         self.faker = Faker()

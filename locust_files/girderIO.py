@@ -13,7 +13,6 @@ REQ_BUFFER_SIZE = 65536
 
 
 class GirderIO(TaskSet):
-
     upload_file_paths = [
         # ('data/100mb.bin', 100 * BYTES_IN_MB),
         # ('data/10mb.bin', 10 * BYTES_IN_MB),
@@ -23,13 +22,35 @@ class GirderIO(TaskSet):
         self.faker = Faker()
         self.user_id = girder_utils.get_user_id(self.client)
         self.files = []
-
+        self.folders = []
+        self.upload_file_prob = 75
+        self.upload_batch_prob = 15
+        self.download_prob = 10
 
     @task(1)
     def stop(self):
         self.interrupt()
 
-    @task(10)
+    @task(100)
+    def pick_task(self):
+        r = random.randint(0, 100)
+
+        if r < self.upload_file_prob:
+            if self.upload_file_prob > 10:
+                self.upload_file_prob -= 1
+                self.download_prob += 1
+            print('Upload prob', self.upload_file_prob)
+            self.upload_file()
+        elif r < self.upload_file_prob + self.upload_batch_prob:
+            if self.upload_batch_prob > 10:
+                self.upload_batch_prob -= 1
+                self.download_prob += 1
+            print('Upload batch prob', self.upload_batch_prob)
+            self.upload_batch()
+        else:
+            print('Download prob', self.download_prob)
+            self.download_file()
+
     def upload_file(self):
         folder_id = girder_utils.get_random_folder_id(self.client, self.user_id)
         path, size = random.choice(self.upload_file_paths)
@@ -37,7 +58,6 @@ class GirderIO(TaskSet):
         slug = self.faker.slug()
 
         r = self.client.post('/api/v1/file',
-                             # name='/api/v1/file, %s, %s, %s, %s' % (size, offset, folder_id, slug))
                              name='post api.v1.folder',
                              params={
                                  'parentType': 'folder',
@@ -79,7 +99,6 @@ class GirderIO(TaskSet):
 
         self.files.append((uploadObj['_id'], size))
 
-    @task(10)
     def download_file(self):
         if len(self.files) is 0:
             self.upload_file()
@@ -96,31 +115,52 @@ class GirderIO(TaskSet):
 
             os.remove(tmp.name)
 
-    @task(10)
     def upload_batch(self):
         count = random.randint(100,5000)
         folder_id = girder_utils.get_random_folder_id(self.client, self.user_id)
-        with tempfile.NamedTemporaryFile() as temp:
-            slug = self.faker.slug()
-            temp.write(slug)
-            temp.seek(0)
-            r = self.client.post('/api/v1/file',
-                     name='post api.v1.file',
-                     params={
-                         'parentType': 'folder',
-                         'parentId': folder_id,
-                         'name': temp.name,
-                         'size': len(slug),
-                         'mimeType': 'application/text'
-                     })
+        for i in range(count):
+            with tempfile.NamedTemporaryFile() as temp:
+                slug = self.faker.slug()
+                temp.write(slug)
+                temp.seek(0)
+                r = self.client.post('/api/v1/file',
+                         name='post api.v1.file',
+                         params={
+                             'parentType': 'folder',
+                             'parentId': folder_id,
+                             'name': temp.name,
+                             'size': len(slug),
+                             'mimeType': 'application/text'
+                         })
 
-            uploadObj = r.json()
-            if '_id' not in uploadObj:
-                raise Exception(
-                    'After uploading a file chunk, did not receive object with _id. '
-                    'Got instead: ' + json.dumps(uploadObj))
+                uploadObj = r.json()
+                if '_id' not in uploadObj:
+                    raise Exception(
+                        'After uploading a file chunk, did not receive object with _id. '
+                        'Got instead: ' + json.dumps(uploadObj))
 
-            r = self.client.post('/api/v1/file/chunk/',
-                                 name='post api.v1.file.chunk',
-                                 params={'offset': 0, 'uploadId': uploadObj['_id']},
-                                 data=temp)
+                r = self.client.post('/api/v1/file/chunk/',
+                                     name='post api.v1.file.chunk',
+                                     params={'offset': 0, 'uploadId': uploadObj['_id']},
+                                     data=temp)
+
+    @task(0)
+    def create_folder(self):
+        folder_id = girder_utils.get_random_folder_id(self.client, self.user_id)
+
+        folder_name = self.faker.slug()
+
+        # Ensure slug is unique for this user
+        # This is slightly over safe seeing as names only need
+        # to be unique with-in each folder,  not globally per-user
+        while folder_name in self.folders:
+            folder_name = self.faker.slug()
+
+        # create folder
+        r = self.client.post('/api/v1/folder',
+                             name='post api.v1.folder',
+                             params={'parentId': folder_id,
+                                     'name': folder_name})
+        r.raise_for_status()
+
+        self.folders.append(r.json()['name'])
