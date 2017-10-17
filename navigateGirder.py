@@ -37,7 +37,7 @@ class NavigateGirder(TaskSet):
         search_query = self.faker.slug()
         types = ['item','folder','group','collection','user']
         r = self.client.get('/api/v1/resource/search',
-                             name='post api.v1.resource.search',
+                             name='api.v1.resource.search',
                              params={'q': 'search_query',
                                      'mode': 'prefix',
                                      'types': json.dumps(types)})
@@ -57,7 +57,7 @@ class NavigateGirder(TaskSet):
 
         # create folder
         r = self.client.post('/api/v1/folder',
-                             name='post api.v1.folder',
+                             name='api.v1.folder',
                              params={'parentId': folder_id,
                                      'name': folder_name})
         r.raise_for_status()
