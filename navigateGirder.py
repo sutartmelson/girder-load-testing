@@ -36,8 +36,29 @@ class NavigateGirder(TaskSet):
         search_query = self.faker.slug()
         types = ['item','folder','group','collection','user']
         r = self.client.get('/api/v1/resource/search',
-                             name='post api.v1.resource.search',
+                             name='api.v1.resource.search',
                              params={'q': 'search_query',
                                      'mode': 'prefix',
                                      'types': json.dumps(types)})
         r.raise_for_status()
+
+    @task(10)
+    def create_folder(self):
+        folder_id = girder_utils.get_random_folder_id(self.client, self.user_id)
+
+        folder_name = self.faker.slug()
+
+        # Ensure slug is unique for this user
+        # This is slightly over safe seeing as names only need
+        # to be unique with-in each folder,  not globally per-user
+        while folder_name in self.folders:
+            folder_name = self.faker.slug()
+
+        # create folder
+        r = self.client.post('/api/v1/folder',
+                             name='api.v1.folder',
+                             params={'parentId': folder_id,
+                                     'name': folder_name})
+        r.raise_for_status()
+
+        self.folders.append(r.json()['_id'])
