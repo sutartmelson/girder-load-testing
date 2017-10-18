@@ -3,7 +3,6 @@ from requests import Session
 from requests.auth import HTTPBasicAuth
 from locust import HttpLocust, TaskSet, task
 import girder_utils
-import girder_utils
 import random
 import six
 import tempfile
@@ -15,7 +14,7 @@ MAX_CHUNK_SIZE = BYTES_IN_MB * 64
 REQ_BUFFER_SIZE = 65536
 
 import loggra
-loggra.setup_graphite_communication()
+# loggra.setup_graphite_communication()
 
 
 class MyTaskSet(TaskSet):
@@ -74,23 +73,20 @@ class MyTaskSet(TaskSet):
         })
 
     @task(100)
-    def pick_task(self):
+    def pick_IO_task(self):
         r = random.randint(0, 100)
 
         if r < self.upload_file_prob:
             if self.upload_file_prob > 10:
                 self.upload_file_prob -= 1
                 self.download_prob += 1
-            print('Upload prob', self.upload_file_prob)
             self.upload_file()
         elif r < self.upload_file_prob + self.upload_batch_prob:
             if self.upload_batch_prob > 2:
                 self.upload_batch_prob -= 2
                 self.download_prob += 2
-            print('Upload batch prob', self.upload_batch_prob)
             self.upload_batch()
         else:
-            print('Download prob', self.download_prob)
             self.download_file()
 
     def upload_file(self):
@@ -100,7 +96,7 @@ class MyTaskSet(TaskSet):
         slug = self.faker.slug()
 
         r = self.client.post('/api/v1/file',
-                             name='post api.v1.folder',
+                             name='api.v1.folder',
                              params={
                                  'parentType': 'folder',
                                  'parentId': folder_id,
@@ -148,7 +144,7 @@ class MyTaskSet(TaskSet):
         file_id , size = random.choice(self.files)
 
         r = self.client.get('/api/v1/file/%s/download' % file_id,
-                            name='get api.v1.file.download',
+                            name='api.v1.file.download',
                             stream=True)
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -166,7 +162,7 @@ class MyTaskSet(TaskSet):
                 temp.write(slug)
                 temp.seek(0)
                 r = self.client.post('/api/v1/file',
-                         name='post api.v1.file',
+                         name='api.v1.file',
                          params={
                              'parentType': 'folder',
                              'parentId': folder_id,
@@ -200,7 +196,7 @@ class MyTaskSet(TaskSet):
 
         # create folder
         r = self.client.post('/api/v1/folder',
-                             name='post api.v1.folder',
+                             name='api.v1.folder',
                              params={'parentId': folder_id,
                                      'name': folder_name})
         r.raise_for_status()
@@ -227,7 +223,7 @@ class MyTaskSet(TaskSet):
         search_query = self.faker.slug()
         types = ['item','folder','group','collection','user']
         r = self.client.get('/api/v1/resource/search',
-                             name='post api.v1.resource.search',
+                             name='api.v1.resource.search',
                              params={'q': 'search_query',
                                      'mode': 'prefix',
                                      'types': json.dumps(types)})

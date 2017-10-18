@@ -1,5 +1,5 @@
 #!/bin/bash
 
-pushd /opt/locust_files/data/
+pushd data/
 ./generate_data.sh
 popd
